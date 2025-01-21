@@ -3,17 +3,21 @@ from machine import Pin, SoftI2C
 import ssd1306
 
 # Set the pins
-i2c = SoftI2C(scl=Pin(9), sda=Pin(8))
+i2c = SoftI2C(scl=Pin(9), sda=Pin(8)) # Screen
+btn = Pin(3, Pin.IN, Pin.PULL_DOWN) # Button
 
 # Set the screen parameters
 oled_width = 128
 oled_height = 64
 oled = ssd1306.SSD1306_I2C(oled_width, oled_height, i2c)
 
-# Text to show
-oled.text('Hello, World 1!', 0, 0)
-oled.text('Hello, World 2!', 0, 10)
-oled.text('Hello, World 3!', 0, 20)
-
 # Show the screen
 oled.show()
+
+while True :
+    oled.fill(0)  # Clear the screen
+    if btn.value() == 1:  # Button is pressed
+        oled.text('Button Pressed!', 0, 0)
+    else:
+        oled.text('Press the button!', 0, 0)
+    oled.show()

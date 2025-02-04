@@ -1,181 +1,141 @@
 #region Import
-
-# Globals
 from machine import Pin, SoftI2C
-# Screen manager
 import ssd1306
-# Leds manager
 from neopixel import Neopixel
-# Used for the algorithmy
 import time
 import random
-
 #endregion
 
+#region Constants
+# Pins
+SCL_PIN = 9
+SDA_PIN = 8
+BTN_PINS = [15, 14, 13, 12, 3]  # A, B, C, D, E
+LED_PIN = 20
 
+# Display
+SCREEN_WIDTH = 128
+SCREEN_HEIGHT = 64
 
-#region Set Pins
+# LED Configuration
+NUM_LEDS = 12
+LED_INDICES = [2, 4, 6, 8, 10]  # Corresponding to buttons A-E
+COLORS = {
+    'red': (255, 0, 0),
+    'green': (0, 255, 0),
+    'blue': (0, 0, 255),
+    'off': (0, 0, 0)
+}
 
-# Screen
-screen_pin = SoftI2C(scl=Pin(9), sda=Pin(8))
-
-# Buttons
-btn_A = Pin(15, Pin.IN, Pin.PULL_DOWN)
-btn_B = Pin(14, Pin.IN, Pin.PULL_DOWN)
-btn_C = Pin(13, Pin.IN, Pin.PULL_DOWN)
-btn_D = Pin(12, Pin.IN, Pin.PULL_DOWN)
-btn_E = Pin(3, Pin.IN, Pin.PULL_DOWN)
-
-# Leds
-led_pin = 20
-
+# Game Settings
+INITIAL_CHAIN = 1
+PATTERN_DELAY = 500  # milliseconds
 #endregion
 
+#region Hardware Setup
+# Initialize Screen
+i2c = SoftI2C(scl=Pin(SCL_PIN), sda=Pin(SDA_PIN))
+screen = ssd1306.SSD1306_I2C(SCREEN_WIDTH, SCREEN_HEIGHT, i2c)
 
+# Initialize Buttons
+buttons = [Pin(pin, Pin.IN, Pin.PULL_DOWN) for pin in BTN_PINS]
 
-#region Leds params
-
-num_leds = 12
-leds = Neopixel(num_leds, 0, led_pin)
+# Initialize LEDs
+leds = Neopixel(NUM_LEDS, 0, LED_PIN)
 leds.brightness(5)
-
-led_A = 2
-led_B = 4
-led_C = 6
-led_D = 8
-led_E = 10
-
 #endregion
 
-
-
-#region Screen params
-
-screen_width = 128
-screen_height = 64
-screen = ssd1306.SSD1306_I2C(screen_width, screen_height, screen_pin)
-
-#endregion
-
-
-
-#region Variables
-
-# Score
-patern = []
+#region Game State
 best_score = 0
-score = 0
-init_chain = 5
-chain = 0
-
-# Colors
-red = (255, 0, 0)
-green = (0, 255, 0)
-blue = (0, 0, 255)
-
-# Lists
-color_list = [red, blue, green]
-led_list = [led_A, led_B, led_C, led_D, led_E]
-btn_list = [btn_A, btn_B, btn_C, btn_D, btn_E]
-
+current_score = 0
+pattern = []
+chain_length = INITIAL_CHAIN
 #endregion
 
-
-
-#region Difficulty()
-
-# Here will go all the difficulty related functions
-
-#endregion
-
-
-
-#region Start()
-
-def start_game(score, best_score, patern, chain, init_chain, btn_list, leds, led_list, red, green, blue):
-    # Check the score
-    if score > best_score:
-        best_score = score
-
-    # Show the starting menu
+#region Helper Functions
+def show_start_screen():
     screen.fill(0)
-    screen.text('Best Score : ' + str(best_score), 0, 0)
-    screen.text('Last Score : ' + str(score), 0, 10)
+    screen.text(f'Best: {best_score}', 0, 0)
+    screen.text(f'Last: {current_score}', 0, 10)
     screen.text('Press any button', 0, 30)
-    screen.text('To START !', 0, 40)
+    screen.text('to START!', 0, 40)
     screen.show()
 
-    # Reset the variable
-    patern = []
-    score = 0
-    chain = init_chain
+def generate_pattern(length):
+    return [random.randint(0, len(buttons)-1) for _ in range(length)]
 
-    # Start the game when a button is pressed
-    while(True) :
-        # Wait for in input
-        if btn_list[0].value() == 1 or btn_list[1].value() == 1 or btn_list[2].value() == 1 or btn_list[3].value() == 1 or btn_list[4].value() == 1:
-            light_patern(chain, leds, led_list, red, green, blue)
+def display_pattern(pattern):
+    for led_index in pattern:
+        leds.set_pixel(LED_INDICES[led_index], COLORS['blue'])
+        leds.show()
+        time.sleep_ms(PATTERN_DELAY)
+        leds.set_pixel(LED_INDICES[led_index], COLORS['off'])
+        leds.show()
+        time.sleep_ms(PATTERN_DELAY//2)
 
+def wait_for_button(timeout=5000):
+    start_time = time.ticks_ms()
+    while True:
+        for i, btn in enumerate(buttons):
+            if btn.value():
+                # Debounce
+                time.sleep_ms(20)
+                while btn.value():
+                    pass
+                return i
+        if time.ticks_diff(time.ticks_ms(), start_time) > timeout:
+            return None
+
+def check_pattern(expected_pattern):
+    for expected in expected_pattern:
+        pressed = wait_for_button()
+        if pressed is None or pressed != expected:
+            # Incorrect or timeout
+            leds.set_pixel(LED_INDICES[pressed], COLORS['red'])
+            leds.show()
+            time.sleep(1)
+            leds.set_pixel(LED_INDICES[pressed], COLORS['off'])
+            leds.show()
+            return False
+        # Visual feedback for correct press
+        leds.set_pixel(LED_INDICES[pressed], COLORS['green'])
+        leds.show()
+        time.sleep(0.2)
+        leds.set_pixel(LED_INDICES[pressed], COLORS['off'])
+        leds.show()
+    return True
+
+def game_over():
+    global best_score
+    if current_score > best_score:
+        best_score = current_score
+    show_start_screen()
 #endregion
 
-
-
-#region Light()
-
-def light_patern(chain, leds, led_list, red, green, blue):
-    for x in range(chain):
-        # Clear all leds
-        leds.clear()
-
-        # Define a led
-        led_r = random.randrange(0, len(led_list))
-        # Save this led in a list
-        patern.append(led_r)
-        # Set up the led
-        leds.set_pixel(led_list[led_r], blue)
-
-        # Show the led
-        leds.show()
-
-        # Wait 0.5s
-        time.sleep(0.5)
-
-        # Clear the led
-        leds.clear()
-        leds.show()
-
-        # Wait 0.75s
-        time.sleep(0.75)
-    # Next step of the game
-    # check_patern(patern, btn_list, score, chain)
-
-#endregion
-
-
-#region Check()
-
-def check_patern(patern, btn_list, score, chain):
-    for x in range(patern):
-        # Wait for in input
-        input() # A vérifier parce que je suis vraiment pas sûr de moi
-
-        # If it's the right button, add score
-        if btn_list[x].value() == 1:
-            score += 1
-        # If it's not the right button, start a new game
-        else:
-            start_game(score, best_score, patern, chain, init_chain, btn_list, leds, led_list, red, green, blue)
+#region Main Game Loop
+while True:
+    show_start_screen()
     
-    # New round
-    chain += 1
-    light_patern(chain, leds, led_list, red, green, blue)
-
-#endregion
-
-
-
-#region Exec
-
-start_game(score, best_score, patern, chain, init_chain, btn_list, leds, led_list, red, green, blue)
-
+    # Wait for any button press to start
+    while not any(btn.value() for btn in buttons):
+        pass
+    
+    # Initialize game
+    current_score = 0
+    chain_length = INITIAL_CHAIN
+    
+    while True:
+        # Generate and show pattern
+        pattern = generate_pattern(chain_length)
+        display_pattern(pattern)
+        
+        # Check user input
+        if check_pattern(pattern):
+            current_score += chain_length
+            chain_length += 1
+        else:
+            break
+    
+    # Handle game over
+    game_over()
 #endregion

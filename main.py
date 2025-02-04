@@ -92,13 +92,13 @@ btn_list = [btn_A, btn_B, btn_C, btn_D, btn_E]
 
 #region Start()
 
-def start_game():
+def start_game(score, best_score, patern, chain, init_chain, btn_list, leds, led_list, red, green, blue):
     # Check the score
     if score > best_score:
         best_score = score
 
     # Show the starting menu
-    oled.fill(0)
+    screen.fill(0)
     screen.text('Best Score : ' + str(best_score), 0, 0)
     screen.text('Last Score : ' + str(score), 0, 10)
     screen.text('Press any button', 0, 30)
@@ -111,11 +111,10 @@ def start_game():
     chain = init_chain
 
     # Start the game when a button is pressed
-    for btn in range(btn_list):
+    while(True) :
         # Wait for in input
-        input() # A vérifier parce que je suis vraiment pas sûr de moi
-        if btn.value() == 1:
-        testSimon1(5)
+        if btn_list[0].value() == 1 or btn_list[1].value() == 1 or btn_list[2].value() == 1 or btn_list[3].value() == 1 or btn_list[4].value() == 1:
+            light_patern(chain, leds, led_list, red, green, blue)
 
 #endregion
 
@@ -123,7 +122,7 @@ def start_game():
 
 #region Light()
 
-def light_patern():
+def light_patern(chain, leds, led_list, red, green, blue):
     for x in range(chain):
         # Clear all leds
         leds.clear()
@@ -148,14 +147,14 @@ def light_patern():
         # Wait 0.75s
         time.sleep(0.75)
     # Next step of the game
-    check_patern()
+    # check_patern(patern, btn_list, score, chain)
 
 #endregion
 
 
 #region Check()
 
-def check_patern():
+def check_patern(patern, btn_list, score, chain):
     for x in range(patern):
         # Wait for in input
         input() # A vérifier parce que je suis vraiment pas sûr de moi
@@ -165,11 +164,11 @@ def check_patern():
             score += 1
         # If it's not the right button, start a new game
         else:
-            start_game()
+            start_game(score, best_score, patern, chain, init_chain, btn_list, leds, led_list, red, green, blue)
     
     # New round
     chain += 1
-    light_patern()
+    light_patern(chain, leds, led_list, red, green, blue)
 
 #endregion
 
@@ -177,6 +176,6 @@ def check_patern():
 
 #region Exec
 
-start_game()
+start_game(score, best_score, patern, chain, init_chain, btn_list, leds, led_list, red, green, blue)
 
 #endregion
